@@ -1,0 +1,25 @@
+# Logging
+$LogPath = "C:\Software\Zoom"
+Start-Transcript -Path $LogPath\ZoomInstall.log -Append -NoClobber
+
+if (Test-Path -Path $LogPath) {
+    #do nothing
+}
+else {
+    mkdir $LogPath
+}
+# download ZoomFullInstaller.msi to $LogPath
+
+$webClient1 = New-Object System.Net.WebClient
+
+# this line guarantees we have the latest installer right from Zoom
+$url1 = 'https://zoom.us/client/latest/ZoomInstallerFull.msi?archType=x64'
+$file1 = "$($LogPath)\ZoomInstallerFull.msi"
+$webClient1.DownloadFile($url1,$file1) 
+
+# once it's downloaded - let's install
+Start-Process $file1 -ArgumentList "/qn zConfig='nogoogle=1;nofacebook=1;' zRecommend='AudioAutoAdjust=1'" -Wait
+
+Write-Host "Zoom installation complete"
+
+Stop-Transcript
