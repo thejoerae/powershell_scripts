@@ -1,0 +1,37 @@
+$dir = 'C:\Software\Zoom'
+
+if (Test-Path -Path $dir) {
+    #do nothing
+}
+else {
+    mkdir $dir
+}
+
+# Get the Process ID (PID) of the zoomrooms.exe process
+$process = Get-Process -Name zoomrooms -ErrorAction SilentlyContinue
+
+if ($process) {
+    # If the process exists, terminate it
+    Stop-Process -Id $process.Id -Force
+    Write-Host "zoomrooms.exe process terminated."
+} else {
+    Write-Host "zoomrooms.exe process not found."
+}
+
+
+#download the MSI
+$webClient = New-Object System.Net.WebClient
+$url = 'https://zoom.us/client/latest/ZoomRoomsInstaller.msi'
+$file = "$($dir)\ZoomRoomsInstaller.msi"
+Write-Host "Downloading file...`n"
+$webClient.DownloadFile($url,$file)
+
+#install the MSI
+
+#change path to $dir
+
+Set-Location -Path $dir
+Get-Location
+
+# install the file
+msiexec /i ZoomRoomsInstaller.msi Silent=true AcceptGDPR=true /quiet /L*v c:\zoomrooms.log
