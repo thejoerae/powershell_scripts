@@ -1,3 +1,5 @@
+# this script will download the latest Zoom Rooms installer from Zoom's website and install it to the $dir folder.  change the $dir folder to wherever you install files from
+
 $dir = 'C:\Software\Zoom'
 
 if (Test-Path -Path $dir) {
