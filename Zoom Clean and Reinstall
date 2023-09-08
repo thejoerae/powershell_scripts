@@ -1,0 +1,133 @@
+#this script download the Zoom Clean MSI from the Zoom website and runs it, then fully reinstalls Zoom and the Zoom for Outlook plugin
+
+    # Logging
+    $LogPath = "C:\Software\Zoom"
+    Start-Transcript -Path $LogPath\ZoomCleanup.log -Append -NoClobber
+    
+    # Variables
+    $CleanZoomTool = "$LogPath\CleanZoom.exe"
+    
+    # Check to see if $LogPath exists
+    $CheckZoomFolder = Test-Path -Path $LogPath -PathType Container
+    
+    # If $LogPath folder does not exist then create it
+    if ($CheckZoomFolder -eq $false) {
+    
+        # Create folder
+        Write-Output "$LogPath folder does not exist - creating it"
+        New-Item -Path "C:\Slipstream" -Name "Zoom" -ItemType "Directory" -Force
+    
+    }
+    else {
+        Write-Output "$LogPath folder exists. Deleting contents and continuing"
+        $IncludeExe = @("*.exe", "*.msi", "*.zip")
+        Get-ChildItem -Path $LogPath -Include $IncludeExe -File -Recurse | ForEach-Object { $_.Delete()}
+    }
+    
+    # Check if CleanZoom.exe exists on the device
+    $CheckZoomClean = Test-Path -Path $CleanZoomTool -PathType "Leaf"
+    
+    # If CleanZoom.exe does not exist on the device - download from Zoom website and extract locally
+    if ($CheckZoomClean -eq $false) {
+    
+        Write-Output "$LogPath\CleanZoom.exe does not exist - downloading and extracting it"
+        Invoke-WebRequest -Uri "https://assets.zoom.us/docs/msi-templates/CleanZoom.zip" -OutFile "$LogPath\CleanZoom.zip"
+        Expand-Archive -Path "$LogPath\CleanZoom.zip" -DestinationPath "$LogPath" -Force
+        Remove-Item -Path "$LogPath\CleanZoom.zip" -Force
+    
+    }
+    else {
+        Write-Output "'$LogPath\CleanZoom.exe' exists - continuing"
+    }
+    
+    try {
+        # Run CleanZoom.exe to remove any installed instances of Zoom client in User Profiles
+        Write-Output "Running CleanZoom.exe to remove Zoom instances from User Profile areas"
+        Start-Process -FilePath $CleanZoomTool -ArgumentList "/silent"
+        Write-Output "Completed"
+    }
+    catch {
+        Write-Output "CleanZoom.exe failed to run"
+    }
+
+    # full Zoom Installer
+
+    # this program worked hard. let's stop it for 10 seconds to rest and finish the cleanzoom process before moving on
+    Start-Sleep -Seconds 10
+
+    # download ZoomFullInstaller.msi to $LogPath
+
+    $webClient1 = New-Object System.Net.WebClient
+
+    # this line guarantees we have the latest installer right from Zoom
+    $url1 = 'https://zoom.us/client/latest/ZoomInstallerFull.msi?archType=x64'
+    $file1 = "$($LogPath)\ZoomInstallerFull.msi"
+    $webClient1.DownloadFile($url1,$file1) 
+
+    # download ZoomOutlookPluginSetup.msi to $LogPath
+
+    $webClient2 = New-Object System.Net.WebClient
+
+    # this line downloads the current version of the Outlook plugin
+    $url2 = 'https://zoom.us/client/latest/ZoomOutlookPluginSetup.msi'
+    $file2 = "$($LogPath)\ZoomOutlookPluginSetup.msi"
+    $webClient2.DownloadFile($url2,$file2) 
+
+    # once it's downloaded - let's install
+
+    Start-Process $LogPath\ZoomInstallerFull.msi -ArgumentList "/qn zConfig='nogoogle=1;nofacebook=1;' zRecommend='AudioAutoAdjust=1'" -Wait
+    Start-Sleep -Seconds 5
+
+    $DownloadedVersion = (((Get-AppLockerFileInformation -Path "$file1").Publisher).BinaryVersion).ToString()
+
+    if ($DownloadedVersion.EndsWith(".0")) {
+        $DownloadedVersion = $DownloadedVersion.TrimEnd(".0")
+    }
+
+    Write-Host "The current version of Zoom is $DownloadedVersion"
+
+    $ZoomVersion = (Get-Package -Name '*Zoom(64*').Version
+
+    if ($ZoomVersion.EndsWith(".0")) {
+        $ZoomVersion = $ZoomVersion.TrimEnd(".0")
+    }
+
+    Write-Host "The installed version of Zoom is $ZoomVersion"
+    if ($ZoomVersion -eq $DownloadedVersion) {
+        Write-Host "Zoom Client has been installed"
+    }
+
+    else {
+        Write-Host "Zoom Client has not been installed.  Please run again"
+    }
+
+    Start-Process $LogPath\ZoomOutlookPluginSetup.msi -ArgumentList "ALLUSERS=1 /qn" -Wait
+
+    Start-Sleep -seconds 3
+
+    # install the Zoom Outlook Plugin
+
+    $DownloadedPluginVersion = (((Get-AppLockerFileInformation -Path "$file2").Publisher).BinaryVersion).ToString()
+
+    if ($DownloadedPluginVersion.EndsWith(".0")) {
+        $DownloadedPluginVersion = $DownloadedPluginVersion.TrimEnd(".0")
+    }
+
+    Write-Host "The current version of the Zoom Outlook Plugin is $DownloadedPluginVersion"
+
+    $ZoomOutlookVersion = (Get-Package -Name '*Zoom Ou*').Version
+
+    if ($ZoomOutlookVersion.EndsWith("0")) {
+        $ZoomOutlookVersion = $ZoomOutlookVersion.TrimEnd("0")
+    }
+
+    Write-Host "The installed version of the Zoom Outlook Plugin is $ZoomOutlookVersion"
+    if ($ZoomOutlookVersion -eq $DownloadedPluginVersion) {
+        Write-Host "Zoom for Outlook Plugin has been installed"
+    }
+
+    else {
+        Write-Host "Zoom for Outlook Plugin has not been installed.  Please run again"
+    }
+    
+    Stop-Transcript
